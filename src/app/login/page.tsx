@@ -22,8 +22,8 @@ function LoginForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (accessKey.length < 7) {
-      setError('Enter 7-digit Master Key or 8-digit Staff Code');
+    if (accessKey.length < 7 || accessKey.length > 8) {
+      setError('Invalid credentials');
       return;
     }
 
@@ -41,7 +41,7 @@ function LoginForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Authentication failed');
+        setError(data.error || 'Invalid credentials');
         setLoading(false);
         return;
       }
@@ -53,7 +53,7 @@ function LoginForm() {
       }, 500);
 
     } catch {
-      setError('Cannot connect to authentication server');
+      setError('Invalid credentials');
       setLoading(false);
     }
   };
@@ -129,7 +129,7 @@ function LoginForm() {
           <div className="p-8">
             <div className="text-center mb-6">
               <h2 className="text-lg font-bold text-white">Authentication</h2>
-              <p className="text-gray-500 text-xs mt-1">Master Key or Staff Access Code</p>
+              <p className="text-gray-500 text-xs mt-1">Enter your access code</p>
             </div>
 
             <form onSubmit={handleSubmit}>
@@ -185,15 +185,10 @@ function LoginForm() {
                 </div>
               </div>
 
-              {/* Status indicators */}
-              {isMasterLength && !error && !success && (
+      {/* Status indicators */}
+              {isValidLength && !error && !success && (
                 <p className="text-center text-xs text-[#39ff14]/70 mb-3 flex items-center justify-center gap-1.5">
-                  <FiLock size={12} /> Master Key recognized
-                </p>
-              )}
-              {isStaffLength && !error && !success && (
-                <p className="text-center text-xs text-blue-400/70 mb-3 flex items-center justify-center gap-1.5">
-                  <FiLock size={12} /> Staff code format verified
+                  <FiLock size={12} /> Code accepted
                 </p>
               )}
               {error && (
@@ -240,21 +235,10 @@ function LoginForm() {
               </button>
             </form>
 
-              {/* Info footer */}
+              {/* Info footer — NO sensitive info exposed */}
               <div className="mt-6 pt-4 border-t border-[#1a1a1a]">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-gray-600">Master Key</span>
-                    <span className="text-gray-500 font-mono">7586373 (7 digits)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-gray-600">Staff Code</span>
-                    <span className="text-gray-500 font-mono">8 digits</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-gray-600">Session</span>
-                    <span className="text-gray-500">24 hours encrypted</span>
-                  </div>
+                <div className="flex items-center justify-center gap-2 text-[10px] text-gray-600">
+                  <FiLock size={10} /> Encrypted session · 24-hour expiry
                 </div>
               </div>
           </div>
