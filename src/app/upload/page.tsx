@@ -2,7 +2,10 @@
 
 import { useState, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
-import { FiUpload, FiX, FiFile, FiCheckCircle, FiAlertCircle, FiSend } from 'react-icons/fi';
+import {
+  FiUpload, FiX, FiFile, FiCheckCircle, FiAlertCircle, FiSend,
+  FiShield, FiChevronDown, FiChevronUp, FiEye
+} from 'react-icons/fi';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -10,6 +13,17 @@ interface UploadedFile {
   name: string;
   size: number;
   status: 'pending' | 'uploaded' | 'failed';
+  audit?: any;
+}
+
+interface AuditResult {
+  score: number;
+  passed: string[];
+  failed: Array<{ id: string; reason: string }>;
+  warnings: string[];
+  missing: string[];
+  summary: string;
+  verdict: 'APPROVE' | 'CONDITIONAL' | 'REJECT';
 }
 
 export default function UploadPage() {
@@ -21,6 +35,9 @@ export default function UploadPage() {
   const [message, setMessage] = useState('');
   const [dragging, setDragging] = useState(false);
   const [uploadedFilesList, setUploadedFilesList] = useState<UploadedFile[]>([]);
+  const [auditEnabled, setAuditEnabled] = useState(true);
+  const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [expandedAudit, setExpandedAudit] = useState<number | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -50,10 +67,13 @@ export default function UploadPage() {
     setStatus('uploading');
     setMessage('');
     setUploadedFilesList([]);
+    setAuditResult(null);
 
     const formData = new FormData();
     formData.append('clientName', clientName.trim());
-    formData.append('caseType', caseType);
+    formData.append('visaType', caseType);
+    formData.append('destination', country);
+    formData.append('audit', auditEnabled ? 'true' : 'false');
     files.forEach(f => formData.append('files', f));
 
     // Update local list
@@ -67,11 +87,23 @@ export default function UploadPage() {
 
       setStatus('success');
       setMessage(`Successfully uploaded ${data.files.length} file(s) for ${data.clientName}!`);
-      setUploadedFilesList(prev => prev.map(f => ({ ...f, status: 'uploaded' })));
+
+      const updatedList: UploadedFile[] = data.files.map((f: any) => ({
+        name: f.name,
+        size: f.size,
+        status: 'uploaded',
+        audit: f.audit,
+      }));
+      setUploadedFilesList(updatedList);
+
+      if (data.audit) {
+        setAuditResult(data.audit as AuditResult);
+      }
 
       setFiles([]);
       setClientName('');
       setCaseType('');
+      setCountry('');
     } catch (err) {
       setStatus('error');
       setMessage(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -256,43 +288,158 @@ export default function UploadPage() {
 
           {/* Sidebar - Upload Status */}
           <div className="space-y-4">
+            {/* AI Audit Toggle */}
+            <div className="card-dark p-6">
+              <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+                <FiShield className="text-[#39ff14]" size={16} /> AI Visa Audit
+              </h3>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-400">Check documents against visa rules</span>
+                <button
+                  onClick={() => setAuditEnabled(!auditEnabled)}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${auditEnabled ? 'bg-[#39ff14]' : 'bg-gray-700'}`}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow ${auditEnabled ? 'left-6' : 'left-0.5'}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Upload Summary */}
             <div className="card-dark p-6">
               <h3 className="font-bold text-white mb-3">Upload Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Files selected</span>
+                  <span className="text-gray-500">Files</span>
                   <span className="text-white font-medium">{files.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Total size</span>
+                  <span className="text-gray-500">Size</span>
                   <span className="text-white font-medium">{(files.reduce((a, f) => a + f.size, 0) / 1024 / 1024).toFixed(2)} MB</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Client</span>
-                  <span className="text-white font-medium">{clientName || 'Not set'}</span>
+                  <span className="text-white font-medium">{clientName || '—'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Visa Type</span>
-                  <span className="text-white font-medium">{caseType || 'Not set'}</span>
+                  <span className="text-gray-500">Visa</span>
+                  <span className="text-white font-medium">{caseType || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Country</span>
+                  <span className="text-white font-medium">{country || '—'}</span>
                 </div>
               </div>
             </div>
 
+            {/* Overall Audit Verdict */}
+            {auditResult && (
+              <div className={`card-dark p-6 border-l-4 ${
+                auditResult.verdict === 'APPROVE' ? 'border-l-[#39ff14]' :
+                auditResult.verdict === 'REJECT' ? 'border-l-red-500' : 'border-l-yellow-500'
+              }`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <FiShield className={
+                    auditResult.verdict === 'APPROVE' ? 'text-[#39ff14]' :
+                    auditResult.verdict === 'REJECT' ? 'text-red-400' : 'text-yellow-400'
+                  } size={18} />
+                  <h3 className="font-bold text-white">Audit Verdict</h3>
+                </div>
+                <div className={`text-3xl font-black mb-2 ${
+                  auditResult.verdict === 'APPROVE' ? 'text-[#39ff14]' :
+                  auditResult.verdict === 'REJECT' ? 'text-red-400' : 'text-yellow-400'
+                }`}>
+                  {auditResult.verdict}
+                </div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${
+                      auditResult.score >= 70 ? 'bg-[#39ff14]' :
+                      auditResult.score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`} style={{ width: `${auditResult.score}%` }} />
+                  </div>
+                  <span className="text-sm text-gray-400 font-mono">{auditResult.score}/100</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-3">{auditResult.summary}</p>
+
+                <div className="text-xs space-y-1">
+                  {auditResult.passed.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-[#39ff14]">
+                      <FiCheckCircle size={10} /> {auditResult.passed.length} passed
+                    </div>
+                  )}
+                  {auditResult.failed.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-red-400">
+                      <FiAlertCircle size={10} /> {auditResult.failed.length} failed
+                    </div>
+                  )}
+                  {auditResult.warnings.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-yellow-400">
+                      <FiAlertCircle size={10} /> {auditResult.warnings.length} warnings
+                    </div>
+                  )}
+                  {auditResult.missing.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-gray-500">
+                      <FiEye size={10} /> {auditResult.missing.length} not assessable
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* File-level Audit Details */}
             {uploadedFilesList.length > 0 && (
               <div className="card-dark p-6">
-                <h3 className="font-bold text-white mb-3">Files Status</h3>
+                <h3 className="font-bold text-white mb-3">Files & Audit</h3>
                 <div className="space-y-2">
                   {uploadedFilesList.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      {f.status === 'uploaded' && <FiCheckCircle className="text-[#39ff14] flex-shrink-0" size={12} />}
-                      {f.status === 'failed' && <FiAlertCircle className="text-red-400 flex-shrink-0" size={12} />}
-                      {f.status === 'pending' && (
-                        <svg className="animate-spin h-3 w-3 text-yellow-400 flex-shrink-0" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
+                    <div key={i}>
+                      <div className="flex items-center gap-2 text-xs cursor-pointer" onClick={() => setExpandedAudit(expandedAudit === i ? null : i)}>
+                        {f.status === 'uploaded' && <FiCheckCircle className="text-[#39ff14] flex-shrink-0" size={12} />}
+                        {f.status === 'failed' && <FiAlertCircle className="text-red-400 flex-shrink-0" size={12} />}
+                        {f.status === 'pending' && (
+                          <svg className="animate-spin h-3 w-3 text-yellow-400 flex-shrink-0" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        )}
+                        <span className="text-gray-300 truncate flex-1">{f.name}</span>
+                        {f.audit && (
+                          <span className="flex items-center gap-1">
+                            {expandedAudit === i ? <FiChevronUp size={12} className="text-gray-500" /> : <FiChevronDown size={12} className="text-gray-500" />}
+                          </span>
+                        )}
+                      </div>
+                      {expandedAudit === i && f.audit && (
+                        <div className="ml-5 mt-1 mb-2 p-3 bg-[#111] rounded-lg text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Score</span>
+                            <span className={`font-mono font-bold ${
+                              f.audit.score >= 70 ? 'text-[#39ff14]' :
+                              f.audit.score >= 40 ? 'text-yellow-400' : 'text-red-400'
+                            }`}>{f.audit.score}/100</span>
+                          </div>
+                          <div className={`inline-block text-[10px] px-2 py-0.5 rounded-sm font-bold ${
+                            f.audit.verdict === 'APPROVE' ? 'bg-[#39ff14]/10 text-[#39ff14]' :
+                            f.audit.verdict === 'REJECT' ? 'bg-red-500/10 text-red-400' : 'bg-yellow-500/10 text-yellow-400'
+                          }`}>{f.audit.verdict}</div>
+                          {f.audit.failed?.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              <p className="text-red-400 font-semibold">Failed:</p>
+                              {f.audit.failed.map((fail: any, fi: number) => (
+                                <p key={fi} className="text-gray-400 pl-2">• {fail.reason || fail}</p>
+                              ))}
+                            </div>
+                          )}
+                          {f.audit.warnings?.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              <p className="text-yellow-400 font-semibold">Warnings:</p>
+                              {f.audit.warnings.map((w: string, wi: number) => (
+                                <p key={wi} className="text-gray-400 pl-2">⚠ {w}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
-                      <span className="text-gray-300 truncate">{f.name}</span>
                     </div>
                   ))}
                 </div>
