@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         redirect: '/admin-dashboard',
       });
 
-      response.cookies.set('___farrukh_ai_session', encrypted, {
+      response.cookies.set('__farrukh_ai_session', encrypted, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',

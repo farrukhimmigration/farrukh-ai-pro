@@ -1,20 +1,20 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FiLock, FiAlertCircle, FiCheck, FiEye, FiEyeOff } from 'react-icons/fi';
 
-export default function LoginPage() {
+// ── LoginForm Component (uses useSearchParams) ──
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [accessKey, setAccessKey] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(searchParams?.get('msg') || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [glowPulse, setGlowPulse] = useState(true);
 
-  // Glow animation effect
   useEffect(() => {
     const interval = setInterval(() => setGlowPulse(prev => !prev), 1500);
     return () => clearInterval(interval);
@@ -46,13 +46,13 @@ export default function LoginPage() {
         return;
       }
 
-      // Success - redirect
+      // Success — redirect
       setSuccess(true);
       setTimeout(() => {
-        router.push(data.redirect || '/dashboard');
+        router.push(data.redirect || '/upload');
       }, 500);
 
-    } catch (err) {
+    } catch {
       setError('Cannot connect to authentication server');
       setLoading(false);
     }
@@ -89,7 +89,8 @@ export default function LoginPage() {
         {/* Logo Header */}
         <div className="text-center mb-10">
           {/* Logo icon */}
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl border border-[#39ff14]/20 bg-[#141414] mb-4 neon-glow"
+          <div
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl border border-[#39ff14]/20 bg-[#141414] mb-4"
             style={{
               boxShadow: `0 0 20px rgba(57,255,20,${glowPulse ? 0.3 : 0.15}), inset 0 0 10px rgba(57,255,20,0.05)`,
             }}
@@ -108,21 +109,22 @@ export default function LoginPage() {
           <p className="text-[11px] text-gray-500 tracking-[0.4em] uppercase font-medium mt-1">
             Consultancy Pro
           </p>
-          <div className="mt-3 h-px w-24 mx-auto" style={{
-            background: `linear-gradient(90deg, transparent, rgba(57,255,20,${glowPulse ? 0.5 : 0.3}), transparent)`,
-          }} />
+          <div
+            className="mt-3 h-px w-24 mx-auto"
+            style={{ background: `linear-gradient(90deg, transparent, rgba(57,255,20,${glowPulse ? 0.5 : 0.3}), transparent)` }}
+          />
         </div>
 
         {/* Auth Card */}
-        <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-2xl overflow-hidden"
-          style={{
-            boxShadow: '0 0 40px rgba(0,0,0,0.5), 0 0 1px rgba(57,255,20,0.1)',
-          }}
+        <div
+          className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-2xl overflow-hidden"
+          style={{ boxShadow: '0 0 40px rgba(0,0,0,0.5), 0 0 1px rgba(57,255,20,0.1)' }}
         >
           {/* Card header accent */}
-          <div className="h-px w-full" style={{
-            background: `linear-gradient(90deg, transparent, rgba(57,255,20,${glowPulse ? 0.5 : 0.2}), transparent)`,
-          }} />
+          <div
+            className="h-px w-full"
+            style={{ background: `linear-gradient(90deg, transparent, rgba(57,255,20,${glowPulse ? 0.5 : 0.2}), transparent)` }}
+          />
 
           <div className="p-8">
             <div className="text-center mb-6">
@@ -141,7 +143,7 @@ export default function LoginPage() {
                     id="accessKey"
                     type={showKey ? 'text' : 'password'}
                     value={accessKey}
-                    onChange={(e) => {
+                    onChange={e => {
                       const val = e.target.value.replace(/[^\d]/g, '');
                       setAccessKey(val.slice(0, 8));
                       setError('');
@@ -161,7 +163,6 @@ export default function LoginPage() {
                             ? 'border-[#39ff14]/40 focus:border-[#39ff14]'
                             : 'border-[#1e1e1e] focus:border-[#39ff14]/50'
                       }
-                      focus:outline-none
                       placeholder:text-gray-700 placeholder:text-lg placeholder:tracking-[0.2em]
                     `}
                     style={{
@@ -177,6 +178,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowKey(!showKey)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition-colors p-1"
+                    tabIndex={-1}
                   >
                     {showKey ? <FiEyeOff size={16} /> : <FiEye size={16} />}
                   </button>
@@ -238,23 +240,23 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Info footer */}
-            <div className="mt-6 pt-4 border-t border-[#1a1a1a]">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-gray-600">Master Key</span>
-                  <span className="text-gray-500 font-mono">7586373 (7 digits)</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-gray-600">Staff Code</span>
-                  <span className="text-gray-500 font-mono">8 digits</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-gray-600">Session</span>
-                  <span className="text-gray-500">24 hours encrypted</span>
+              {/* Info footer */}
+              <div className="mt-6 pt-4 border-t border-[#1a1a1a]">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-gray-600">Master Key</span>
+                    <span className="text-gray-500 font-mono">7586373 (7 digits)</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-gray-600">Staff Code</span>
+                    <span className="text-gray-500 font-mono">8 digits</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-gray-600">Session</span>
+                    <span className="text-gray-500">24 hours encrypted</span>
+                  </div>
                 </div>
               </div>
-            </div>
           </div>
         </div>
 
@@ -266,5 +268,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Page wrapper with Suspense ──
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+          <div className="w-8 h-8 border-2 border-[#39ff14] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
