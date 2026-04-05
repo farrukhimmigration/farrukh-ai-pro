@@ -4,17 +4,22 @@ import { encryptSession } from '@/lib/crypto';
 /**
  * Server-side authentication for Farrukh AI Pro.
  *
- * MASTER_ID is checked from:
- *   1. process.env.MASTER_ID          (private — never shipped to browser)
- *   2. process.env.NEXT_PUBLIC_MASTER_ID (public — prefixed for Next.js client bundling)
- * The first non-empty value wins.
+ * MASTER_ID resolution (in order):
+ *   1. process.env.MASTER_ID          (private Vercel env var — preferred)
+ *   2. process.env.NEXT_PUBLIC_MASTER_ID (fallback)
+ *   3. Hardcoded fallback '7586373'  (last resort — never rely on this long-term)
+ *
+ * The hardcoded fallback exists ONLY because Vercel env var injection has
+ * been unreliable. Fix this by confirming the Vercel env var name is exactly
+ * "MASTER_ID" (case-sensitive) and redeploy.
  */
 const rawMaster = [
   process.env.MASTER_ID,
   process.env.NEXT_PUBLIC_MASTER_ID,
+  '7586373',  // hardcoded fallback — NEVER change this without updating Vercel env vars
 ].filter(Boolean)[0];
 
-const MASTER_ID = (rawMaster || '').trim();
+const MASTER_ID = (rawMaster as string).trim();
 
 /** Google Apps Script URL for staff code verification */
 const GAS_URL = (process.env.GOOGLE_APPS_SCRIPT_URL || '').trim();
