@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { decryptSession, MASTER_ID } from '@/lib/crypto';
+import { decryptSession } from '@/lib/crypto';
 
-// ─── Route class ─────────────────────────────────────────────────────
+// ─── Route access levels ─────────────────────────────────────────────
 const PUBLIC_PATHS = ['/login'];
 const MASTER_ONLY = ['/admin-dashboard'];
 const STAFF_PLUS_MASTER = ['/upload', '/consultation', '/cases', '/clients', '/dashboard', '/analytics', '/settings', '/staff-portal'];
@@ -25,7 +25,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Read session cookie
+  // 3. Read and decrypt session cookie
   const cookie = req.cookies.get('__farrukh_ai_session');
   if (!cookie) return redirectLogin(req, 'Session not found');
 
@@ -36,24 +36,23 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  const userId = session['userId'] as string;
-  const role = session['role'] as string;
-  const isMaster = userId === MASTER_ID;
+  // Session exists and is valid — extract role
+  const role = session['role'] as string | undefined;
+  if (!role) return redirectLogin(req, 'Invalid session');
+
+  const isMaster = role === 'master';
+  const isStaff = role === 'staff';
 
   // 4. Route authorization
   if (MASTER_ONLY.some(p => pathname.startsWith(p))) {
-    if (!isMaster) {
-      return NextResponse.redirect(new URL('/upload', req.url));
-    }
+    if (!isMaster) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
   if (STAFF_PLUS_MASTER.some(p => pathname.startsWith(p))) {
-    if (!isMaster && role !== 'staff') {
-      return redirectLogin(req, 'Access denied');
-    }
+    if (!isMaster && !isStaff) return redirectLogin(req, 'Access denied');
   }
 
-  // Allow request through
+  // 5. Allow request through — user is authorized
   return NextResponse.next();
 }
 

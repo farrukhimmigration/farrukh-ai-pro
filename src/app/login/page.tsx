@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, FormEvent, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { FiLock, FiAlertCircle, FiCheck, FiEye, FiEyeOff } from 'react-icons/fi';
 
 // ── LoginForm Component (uses useSearchParams) ──
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [accessKey, setAccessKey] = useState('');
   const [error, setError] = useState(searchParams?.get('msg') || '');
@@ -46,10 +45,10 @@ function LoginForm() {
         return;
       }
 
-      // Success — redirect
       setSuccess(true);
+      const target = data.redirect || '/analytics';
       setTimeout(() => {
-        router.push(data.redirect || '/upload');
+        window.location.href = target;
       }, 500);
 
     } catch {
