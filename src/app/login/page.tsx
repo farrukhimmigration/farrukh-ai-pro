@@ -21,7 +21,8 @@ function LoginForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (accessKey.length < 7 || accessKey.length > 8) {
+    const trimmed = accessKey.trim();
+    if (trimmed.length < 7 || trimmed.length > 8) {
       setError('Invalid credentials');
       return;
     }
@@ -34,7 +35,7 @@ function LoginForm() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessKey }),
+        body: JSON.stringify({ accessKey: trimmed }),
       });
 
       const data = await response.json();
@@ -57,8 +58,9 @@ function LoginForm() {
     }
   };
 
-  const isMasterLength = accessKey.length === 7;
-  const isStaffLength = accessKey.length === 8;
+  const trimmed = accessKey.trim();
+  const isMasterLength = trimmed.length === 7;
+  const isStaffLength = trimmed.length === 8;
   const isValidLength = isMasterLength || isStaffLength;
 
   return (

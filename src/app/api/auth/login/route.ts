@@ -4,14 +4,31 @@ import { encryptSession } from '@/lib/crypto';
 /**
  * Server-side authentication for Farrukh AI Pro.
  *
- * MASTER_ID is sourced from process.env.NEXT_PUBLIC_MASTER_ID.
- * In production, this must be set via .env or server config.
- * NEVER expose this to the browser — this constant is only on the server.
+ * MASTER_ID is checked from:
+ *   1. process.env.MASTER_ID          (private — never shipped to browser)
+ *   2. process.env.NEXT_PUBLIC_MASTER_ID (public — prefixed for Next.js client bundling)
+ * The first non-empty value wins.
  */
-const MASTER_ID = process.env.MASTER_ID || process.env.NEXT_PUBLIC_MASTER_ID || '';
+const rawMaster = [
+  process.env.MASTER_ID,
+  process.env.NEXT_PUBLIC_MASTER_ID,
+].filter(Boolean)[0];
+
+const MASTER_ID = (rawMaster || '').trim();
 
 /** Google Apps Script URL for staff code verification */
-const GAS_URL = process.env.GOOGLE_APPS_SCRIPT_URL || '';
+const GAS_URL = (process.env.GOOGLE_APPS_SCRIPT_URL || '').trim();
+
+/**
+ * Diagnostic log — prints once at module load time (on cold start in Vercel).
+ * Helps confirm the env var is actually being read.
+ * Only safe because it logs LENGTH and SOURCE, never the value.
+ */
+console.log('[Auth API] MASTER_ID loaded:', {
+  length: MASTER_ID.length,
+  source: process.env.MASTER_ID ? 'MASTER_ID' : process.env.NEXT_PUBLIC_MASTER_ID ? 'NEXT_PUBLIC_MASTER_ID' : 'NOT_FOUND',
+  isEmpty: MASTER_ID === '',
+});
 
 /**
  * Constant-time comparison to prevent timing attacks on the master key.
@@ -34,7 +51,7 @@ function secureCompare(a: string, b: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { accessKey } = body;
+    const accessKey = (body?.accessKey || '').trim();
 
     if (!accessKey || typeof accessKey !== 'string') {
       return NextResponse.json(
@@ -44,7 +61,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Master key check (server-side only) ──
-    if (MASTER_ID && accessKey.length === 7 && secureCompare(accessKey, MASTER_ID)) {
+    if (MASTER_ID && accessKey.length === MASTER_ID.length && secureCompare(accessKey, MASTER_ID)) {
+      console.log('[Auth API] ✅ Master key match — creating session');
       const session = {
         userId: `master_${MASTER_ID}`,
         role: 'master' as const,
@@ -70,9 +88,21 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
+    // Debug: help diagnose why master key didn't match
+    if (accessKey.length === 7) {
+      console.log('[Auth API] ❌ 7-digit key submitted — comparison result:', {
+        masterIdLength: MASTER_ID.length,
+        inputLength: accessKey.length,
+        masterIdSource: process.env.MASTER_ID ? 'MASTER_ID' : process.env.NEXT_PUBLIC_MASTER_ID ? 'NEXT_PUBLIC_MASTER_ID' : 'NONE',
+        masterIdEmpty: MASTER_ID === '',
+        lengthMatch: accessKey.length === MASTER_ID.length,
+      });
+    }
+
     // ── Staff code check (8 digits, verified via Google Apps Script) ──
     if (accessKey.length === 8 && /^\d{8}$/.test(accessKey)) {
-      if (!GAS_URL || GAS_URL === 'your_google_apps_script_url_here') {
+      if (!GAS_URL || GAS_URL.startsWith('your_google_apps_script')) {
+        console.log('[Auth API] ❌ 8-digit staff code but GAS not configured');
         return NextResponse.json(
           { error: 'Invalid credentials' },
           { status: 401 }
